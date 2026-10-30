@@ -3,12 +3,12 @@
 
 import { encodeMessage, decodeMessage, COORD_MAX } from './codec.js';
 import { simplifyRDP, buildDigPath, atLen } from './geom.js';
-import { SCENE_W, SCENE_H, STRIP_H, layout, drawScene, drawHole } from './scene.js';
+import { SCENE_W, SCENE_H, STRIP_H, FARM_SRC_W, setScene, layout, drawScene, drawHole } from './scene.js';
 import { drawAnt } from './ants.js';
 import { attractStrokes } from './letters.js';
 import { makeFarm } from './farm.js';
 
-const L = layout();
+let L = layout();
 const canvas = document.getElementById('c');
 const g = canvas.getContext('2d');
 
@@ -35,6 +35,7 @@ const ui = {
 
 // ---------- viewport (fixed 1200x760 logical, scaled to fit via css) ----------
 let dpr = 1;
+let pxZoom = 1;   // undoes the stage shrink on ants and tunnels
 let bg = null, bgCtx = null;
 const farm = makeFarm();
 let dugR = null, dugRCtx = null;   // red outline layer
@@ -58,16 +59,43 @@ function rebuildLayers() {
 }
 
 const stageWrap = document.getElementById('stage-wrap');
+const stageEl = document.getElementById('stage');
+const headerEl = document.querySelector('header');
+const footerEl = document.querySelector('footer');
 
 function resize() {
   dpr = Math.min(2, window.devicePixelRatio || 1);
+  const availW = document.getElementById('app').clientWidth - 28;
+  let s;
+  if (availW < 720) {
+    // portrait phones: left 2/3 of the farm zoomed ~15%, dirt grows
+    // to fill the screen height between header and footer. Quantized
+    // so mobile safari's scroll-height jitter doesn't rebuild layers
+    s = availW / 920;
+    const chrome = headerEl.offsetHeight + footerEl.offsetHeight + 30;
+    const h = Math.min(1600, Math.max(760, Math.round((window.innerHeight - chrome) / s / 40) * 40));
+    setScene(920, h, 248, 384);
+  } else {
+    s = Math.min(1, availW / 1200);
+    setScene(1200, 760, 216, 576);
+  }
+  const key = `${SCENE_W}x${SCENE_H}`;
+  if (key === resize._key && Math.abs(s - resize._s) < 0.001) return;
+  resize._key = key; resize._s = s;
+  pxZoom = Math.min(1.5, 1 / s);
+  L = layout();
+  if (digPath) digPath = buildDigPath(strokesPx());
+  walkMask = null; walkMaskLen = -1;
   canvas.width = SCENE_W * dpr;
   canvas.height = SCENE_H * dpr;
-  const avail = document.getElementById('app').clientWidth - 28;
-  const s = Math.min(1, avail / SCENE_W);
+  stageEl.style.width = `${SCENE_W}px`;
+  stageEl.style.height = `${SCENE_H}px`;
   stageWrap.style.transform = `scale(${s})`;
   stageWrap.style.height = `${SCENE_H * s}px`;
+  // --uz undoes the stage shrink so buttons and text stay readable
+  stageEl.style.setProperty('--uz', Math.min(2, 1 / s).toFixed(3));
   rebuildLayers();
+  if (digPath && frontLen > 0) { buildWalkMask(); walkMaskLen = frontLen; }
 }
 
 // ---------- state ----------
@@ -135,9 +163,9 @@ function stampTo(len) {
     stampedLen = Math.min(len, stampedLen + 1.6);
     const p = atLen(digPath, stampedLen);
     if (p.w < 0.1) continue;   // on-foot travel — ants above ground dig nothing
-    const r = 5 + 11 * p.w;
+    const r = (5 + 11 * p.w) * pxZoom;
     dugRCtx.fillStyle = '#ff2a00';
-    dugRCtx.beginPath(); dugRCtx.arc(p.x, p.y, r + 5, 0, Math.PI * 2); dugRCtx.fill();
+    dugRCtx.beginPath(); dugRCtx.arc(p.x, p.y, r + 5 * pxZoom, 0, Math.PI * 2); dugRCtx.fill();
     dugWCtx.fillStyle = '#fdf8f0';
     dugWCtx.beginPath(); dugWCtx.arc(p.x, p.y, r, 0, Math.PI * 2); dugWCtx.fill();
   }
@@ -202,7 +230,16 @@ function enterDraw(msg) {
 
 function enterAttract() {
   attracting = true;
-  rawStrokes = attractStrokes();
+  // the attract lettering is authored for the wide desktop dirt box;
+  // on tall screens it stacks into two bigger lines instead
+  const portrait = L.dirt.h > L.dirt.w;
+  // the two-line version uses wider-than-tall glyph boxes (157x430);
+  // srcAspect 0.616*430/157 keeps the letters' shape after fitToAspect
+  rawStrokes = fitToAspect(
+    attractStrokes(portrait ? 'ant\nfarm' : 'ant farm',
+                   portrait ? { letterW: 157, lineH: 430, lineGap: 90 } : {}),
+    portrait ? 0.616 * 430 / 157 : 1200 / 544,
+    portrait ? 0.38 : 0.5);
   ui.hint.textContent = 'The colony is warming up — hang on';
   canvas.classList.add('watching');
   startDig();
@@ -221,6 +258,16 @@ async function enterWatch(strokes) {
 }
 
 // ---------- share ----------
+// a dig drawn in a wide dirt box would squash in a tall one — rescale the
+// normalized coords to the link's stored aspect and re-center
+function fitToAspect(strokes, srcAspect, bias = 0.5) {
+  const k = (L.dirt.w / L.dirt.h) / srcAspect;
+  if (Math.abs(k - 1) < 0.04) return strokes;
+  const [f, axis] = k < 1 ? [k, 'y'] : [1 / k, 'x'];
+  const off = (1 - f) * bias * COORD_MAX;
+  return strokes.map(s => s.map(p => ({ ...p, [axis]: Math.round(p[axis] * f + off) })));
+}
+
 async function buildShareUrl() {
   const base = location.origin + location.pathname + location.search;
   const aspect = L.dirt.w / L.dirt.h;
@@ -247,7 +294,7 @@ const inDirt = (p) => p.y >= L.dirt.y + 4 && p.y <= L.dirt.y + L.dirt.h - 4 &&
 canvas.addEventListener('pointerdown', (e) => {
   const p = toLogical(e);
   // taps on the surface poke the farm — roo hops, hoist spins
-  if (p.y < L.dirt.y) { farm.tap(p.x * 576 / SCENE_W, p.y * 128 / STRIP_H); return; }
+  if (p.y < L.dirt.y) { farm.tap(p.x * FARM_SRC_W / SCENE_W, p.y * 128 / STRIP_H); return; }
   if (mode !== 'draw') return;
   if (!inDirt(p)) return;
   canvas.setPointerCapture(e.pointerId);
@@ -435,8 +482,9 @@ function frame(now) {
       const head = atLen(digPath, frontLen);
       for (let i = 0; i < 2; i++) {
         crumbs.push({
-          x: head.x + (Math.random() - 0.5) * 8, y: head.y + (Math.random() - 0.5) * 8,
-          vx: (Math.random() - 0.5) * 60, vy: -Math.random() * 70,
+          x: head.x + (Math.random() - 0.5) * 8 * pxZoom,
+          y: head.y + (Math.random() - 0.5) * 8 * pxZoom,
+          vx: (Math.random() - 0.5) * 60 * pxZoom, vy: -Math.random() * 70 * pxZoom,
           life: 0.5 + Math.random() * 0.4,
         });
       }
@@ -494,17 +542,17 @@ function frame(now) {
   const phase = ((tSec / CYCLE_S) + daytOffset) % 1;
   farm.draw(now, phase * 24);
   g.imageSmoothingEnabled = false;
-  g.drawImage(farm.canvas, 0, 0, 576, 128, 0, 0, SCENE_W, STRIP_H);
+  g.drawImage(farm.canvas, 0, 0, FARM_SRC_W, 128, 0, 0, SCENE_W, STRIP_H);
   g.imageSmoothingEnabled = true;
 
   g.drawImage(bg, 0, 0, SCENE_W, SCENE_H);
-  drawHole(g, L);
+  drawHole(g, L, pxZoom);
 
   // drawn-stroke preview (thin version of the tunnel to come)
   if (mode === 'draw' && rawStrokes.length) {
     g.lineCap = g.lineJoin = 'round';
     for (const pass of [[6.5, '#ff2a00'], [3.8, '#fdf8f0']]) {
-      g.strokeStyle = pass[1]; g.lineWidth = pass[0];
+      g.strokeStyle = pass[1]; g.lineWidth = pass[0] * pxZoom;
       for (const s of rawStrokes) {
         if (s.length < 2) continue;
         g.beginPath();
@@ -531,21 +579,21 @@ function frame(now) {
     c.x += c.vx * dt; c.y += c.vy * dt;
     g.globalAlpha = Math.min(1, c.life * 3);
     g.fillStyle = '#9a7a4e';
-    g.beginPath(); g.arc(c.x, c.y, 1.6, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(c.x, c.y, 1.6 * pxZoom, 0, Math.PI * 2); g.fill();
   }
   g.globalAlpha = 1;
 
   // tunnel wanderers — trickle in while digging, stay on after
   if (mode === 'digging' || mode === 'done') {
     updateTunnelAnts(dt);
-    for (const a of tunnelAnts) drawAnt(g, a.x, a.y, a.ang, { phase: a.phase, s: 1.1 });
+    for (const a of tunnelAnts) drawAnt(g, a.x, a.y, a.ang, { phase: a.phase, s: 1.1 * pxZoom });
   }
 
   // leader at the dig front — hidden during pen lifts so a new digger
   // "spawns" at the start of each stroke; legs only move while digging
   if (mode === 'digging' && frontLen > 2) {
     const p = atLen(digPath, Math.min(frontLen, digPath.totalLen - 0.5));
-    if (p.w >= 0.1) drawAnt(g, p.x, p.y, p.ang + Math.sin(idleAng * 2.2) * 0.9, { phase: antPhase, s: 1.25 });
+    if (p.w >= 0.1) drawAnt(g, p.x, p.y, p.ang + Math.sin(idleAng * 2.2) * 0.9, { phase: antPhase, s: 1.25 * pxZoom });
   }
 
   requestAnimationFrame(frame);
@@ -558,9 +606,9 @@ resize();
 const m = location.hash.match(/#d=([A-Za-z0-9\-_]+)/);
 if (m) {
   decodeMessage(m[1])
-    .then(({ strokes }) => {
+    .then(({ strokes, aspect }) => {
       if (!strokes.length || !strokes[0].length) throw new Error('empty');
-      enterWatch(strokes);
+      enterWatch(fitToAspect(strokes, aspect));
       if (new URLSearchParams(location.search).has('play')) {
         setTimeout(releaseAnts, 600);
       }

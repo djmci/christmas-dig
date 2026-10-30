@@ -226,6 +226,46 @@ canvas.watching { cursor: default; }
   pointer-events: none;
 }
 
+/* --uz is set from JS to undo the stage transform on in-scene UI,
+   so buttons and text stay a usable size on narrow screens */
+#stage .btn {
+  font-size: calc(15px * var(--uz, 1));
+  padding: calc(11px * var(--uz, 1)) calc(18px * var(--uz, 1));
+  gap: calc(8px * var(--uz, 1));
+  border-radius: calc(10px * var(--uz, 1));
+}
+#btn-copy svg { width: calc(15px * var(--uz, 1)); height: calc(15px * var(--uz, 1)); }
+#toolbar, #sharebar, #afterbar { bottom: calc(30px * var(--uz, 1)); }
+#sharebar, #afterbar { gap: calc(8px * var(--uz, 1)); }
+#sharebar-ghosts { display: flex; gap: calc(8px * var(--uz, 1)); }
+#share-url {
+  font-size: calc(13px * var(--uz, 1));
+  padding: calc(11px * var(--uz, 1)) calc(12px * var(--uz, 1));
+}
+#overlay-text { font-size: calc(30px * var(--uz, 1)); }
+#overlay-card .btn {
+  font-size: calc(15px * var(--uz, 1));
+  padding: calc(12px * var(--uz, 1)) calc(30px * var(--uz, 1));
+}
+#btn-skip {
+  right: calc(14px * var(--uz, 1));
+  top: calc(14px * var(--uz, 1));
+  bottom: auto;
+  font-size: calc(13px * var(--uz, 1));
+  padding: calc(8px * var(--uz, 1)) calc(14px * var(--uz, 1));
+}
+#share-copied-card {
+  padding: calc(28px * var(--uz, 1)) calc(36px * var(--uz, 1));
+  max-width: min(88%, calc(480px * var(--uz, 1)));
+}
+#share-copied-title { font-size: calc(28px * var(--uz, 1)); }
+#share-copied-sub { font-size: calc(14px * var(--uz, 1)); }
+#toast {
+  top: calc(14px * var(--uz, 1));
+  font-size: calc(13px * var(--uz, 1));
+  padding: calc(9px * var(--uz, 1)) calc(16px * var(--uz, 1));
+}
+
 .hidden { display: none !important; }
 
 footer {
@@ -237,7 +277,11 @@ footer {
 footer a { color: #d9a066; }
 
 @media (max-width: 640px) {
+  header { padding: 20px 0 14px; gap: 8px; }
   #logo { width: 220px; }
-  #sharebar { flex-wrap: wrap; }
+  h1 { font-size: 30px; }
+  #subtitle { font-size: 14px; }
+  /* stack the share button over the ghost row on narrow screens */
+  #sharebar { flex-direction: column; align-items: center; gap: calc(16px * var(--uz, 1)); }
   #share-url { flex-basis: 100%; max-width: none; order: -1; }
 }

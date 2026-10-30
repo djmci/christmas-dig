@@ -5,10 +5,17 @@
 
 import * as SPR from './sprites.js';
 
-export const SCENE_W = 1200;
-export const SCENE_H = 760;
+export let SCENE_W = 1200;
+export let SCENE_H = 760;
 
-export const STRIP_H = 216;   // the farm's band above the dirt
+export let STRIP_H = 216;     // the farm's band above the dirt
+export let FARM_SRC_W = 576;  // how much of the 576px farm canvas is drawn
+
+// portrait screens get a narrower, taller scene: the left 2/3 of the
+// farm zoomed slightly, with more dirt underneath
+export function setScene(w, h, strip, farmSrcW) {
+  SCENE_W = w; SCENE_H = h; STRIP_H = strip; FARM_SRC_W = farmSrcW;
+}
 
 export function layout() {
   const grassY = STRIP_H - 26;
@@ -49,13 +56,16 @@ export function drawScene(g, L) {
   g.fillStyle = topsoil;
   g.fillRect(dirt.x, dirt.y, dirt.w, 30);
 
-  for (let i = 0; i < 800; i++) {
+  // speckle and stone counts scale with dirt area so tall mobile
+  // layouts keep the same density
+  const density = dirt.w * dirt.h / (1200 * 544);
+  for (let i = 0; i < 800 * density; i++) {
     const x = dirt.x + rnd() * dirt.w, y = dirt.y + rnd() * dirt.h;
     g.fillStyle = rnd() > 0.5 ? 'rgba(120,90,55,.18)' : 'rgba(255,246,225,.35)';
     const r = 0.6 + rnd() * 1.8;
     g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
   }
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 14 * density; i++) {
     const x = dirt.x + rnd() * dirt.w, y = dirt.y + rnd() * dirt.h;
     const r = 4 + rnd() * 9;
     g.fillStyle = `rgba(${150 + rnd() * 30 | 0},${128 + rnd() * 25 | 0},${100 + rnd() * 20 | 0},.5)`;
@@ -100,10 +110,10 @@ export function drawScene(g, L) {
 }
 
 // the colony's front door — drawn per frame over the farm strip
-export function drawHole(g, L) {
+export function drawHole(g, L, s = 1) {
   const { entrance } = L;
   g.fillStyle = '#4a3419';
-  g.beginPath(); g.ellipse(entrance.x, STRIP_H, 11, 4.5, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(entrance.x, STRIP_H, 11 * s, 4.5 * s, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#c9b28a';
-  g.beginPath(); g.ellipse(entrance.x + 16, STRIP_H + 1, 9, 3.5, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(entrance.x + 16 * s, STRIP_H + 1, 9 * s, 3.5 * s, 0, 0, Math.PI * 2); g.fill();
 }

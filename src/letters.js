@@ -67,37 +67,42 @@ const K = 1023;
 
 // "ant farm" as normalized dig strokes [{x,y,dt}] in 0..1023 coords.
 // dt is proportional to the distance so dig speed stays even.
-export function attractStrokes(word = 'ant farm') {
-  const W = 84, GAP = 30, SPACE = 52;
-  const letters = [...word];
-  const totalW = letters.length * W + (letters.length - 1) * GAP + SPACE;
-  const x0 = (K - totalW) / 2 + 46;
-  const y0 = 340, H = 300;
+// '\n' splits lines; portrait layouts stack "ant" over "farm" with
+// wider letters so the word reads bigger on a tall screen.
+export function attractStrokes(word = 'ant farm', { letterW: W = 84, lineH: H = 300, lineGap: LINE_GAP = 80 } = {}) {
+  const GAP = 30, SPACE = 52;
+  const lines = word.split('\n');
+  const totalH = lines.length * H + (lines.length - 1) * LINE_GAP;
+  const yTop = Math.max(60, 340 + (300 - totalH) / 2);   // 340 keeps the one-line offset
   const STEP = 22;          // normalized units between sampled points
   const DT_PER_UNIT = 7.5;  // ms per normalized unit -> even dig speed
 
   const strokes = [];
-  let lx = x0;
-  for (const ch of letters) {
-    if (ch === ' ') { lx += SPACE + GAP; continue; }
-    for (const poly of GLYPHS[ch]) {
-      const stroke = [];
-      for (let s = 0; s < poly.length - 1; s++) {
-        const [ax, ay] = poly[s], [bx, by] = poly[s + 1];
-        const dist = Math.hypot(bx - ax, by - ay) * W;
-        const n = Math.max(1, Math.round(dist / STEP));
-        for (let i = s === 0 ? 0 : 1; i <= n; i++) {
-          const t = i / n;
-          stroke.push({
-            x: Math.round(lx + (ax + (bx - ax) * t) * W),
-            y: Math.round(y0 + (ay + (by - ay) * t) * H),
-            dt: Math.max(30, Math.round(dist / n * DT_PER_UNIT)),
-          });
+  lines.forEach((line, li) => {
+    const totalW = line.length * W + (line.length - 1) * GAP + SPACE;
+    const y0 = yTop + li * (H + LINE_GAP);
+    let lx = (K - totalW) / 2 + 46;
+    for (const ch of line) {
+      if (ch === ' ') { lx += SPACE + GAP; continue; }
+      for (const poly of GLYPHS[ch]) {
+        const stroke = [];
+        for (let s = 0; s < poly.length - 1; s++) {
+          const [ax, ay] = poly[s], [bx, by] = poly[s + 1];
+          const dist = Math.hypot(bx - ax, by - ay) * W;
+          const n = Math.max(1, Math.round(dist / STEP));
+          for (let i = s === 0 ? 0 : 1; i <= n; i++) {
+            const t = i / n;
+            stroke.push({
+              x: Math.round(lx + (ax + (bx - ax) * t) * W),
+              y: Math.round(y0 + (ay + (by - ay) * t) * H),
+              dt: Math.max(30, Math.round(dist / n * DT_PER_UNIT)),
+            });
+          }
         }
+        if (stroke.length) { stroke[0].dt = 450; strokes.push(stroke); }
       }
-      if (stroke.length) { stroke[0].dt = 450; strokes.push(stroke); }
+      lx += W + GAP;
     }
-    lx += W + GAP;
-  }
+  });
   return strokes;
 }
