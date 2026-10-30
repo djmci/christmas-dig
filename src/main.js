@@ -83,6 +83,8 @@ let digPath = null;           // {pts, cum, totalLen, totalTime}
 let digT = 0, frontLen = 0, stampedLen = 0;
 let crumbs = [];
 let tunnelAnts = [];          // wanderers roaming the dug white
+let pendingRoamers = [];      // queued residents trickling in after the dig
+let roamerTimer = 0;
 let walkMaskLen = -1;         // frontLen the walk mask was built at
 let antPhase = 0;             // leader leg phase, driven by dig progress
 let idleAng = 0;              // accumulates while the front waits (pen lift)
@@ -145,6 +147,8 @@ function prepareDig() {
   digT = 0; frontLen = 0; stampedLen = 0;
   crumbs = [];
   tunnelAnts = [];
+  pendingRoamers = [];
+  roamerTimer = 0;
   walkMaskLen = -1;
   antPhase = 0;
   idleAng = 0;
@@ -371,6 +375,12 @@ function spawnTunnelAnts(n) {
 }
 
 function updateTunnelAnts(dt) {
+  roamerTimer += dt;
+  if (pendingRoamers.length && roamerTimer > 0.14) {
+    const p = pendingRoamers.shift();
+    tunnelAnts.push(mkRoamer(p.x, p.y));
+    roamerTimer = 0;
+  }
   for (const a of tunnelAnts) {
     a.phase += dt * 10;
     a.ang += (Math.random() - 0.5) * 2.5 * dt;
@@ -441,14 +451,15 @@ function frame(now) {
       mode = 'done';
       ui.btnSkip.classList.add('hidden');
       buildWalkMask();
-      // every stroke is its own sealed tube — guarantee each gets a resident
+      // the last digger clocks off as a roamer rather than vanishing
+      if (lastDugPos) tunnelAnts.push(mkRoamer(lastDugPos.x, lastDugPos.y));
+      // every stroke is its own sealed tube — queue a resident each so
+      // they trickle in instead of popping into existence all at once
       for (const [s, e] of digPath.strokeRanges) {
         if (e <= s) continue;
         const n = e - s > 700 ? 2 : 1;
-        for (let k = 0; k < n; k++) {
-          const p = atLen(digPath, s + Math.random() * (e - s));
-          tunnelAnts.push(mkRoamer(p.x, p.y));
-        }
+        for (let k = 0; k < n; k++)
+          pendingRoamers.push(atLen(digPath, s + Math.random() * (e - s)));
       }
       if (attracting) {
         ui.hint.textContent = "That's the idea — now bury your own";
