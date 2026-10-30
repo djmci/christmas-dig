@@ -281,7 +281,6 @@ footer a { color: #d9a066; }
   #logo { width: 220px; }
   h1 { font-size: 30px; }
   #subtitle { font-size: 14px; }
-  /* stack the share button over the ghost row on narrow screens */
-  #sharebar { flex-direction: column; align-items: center; gap: calc(16px * var(--uz, 1)); }
+  #sharebar { gap: calc(10px * var(--uz, 1)); }
   #share-url { flex-basis: 100%; max-width: none; order: -1; }
 }
