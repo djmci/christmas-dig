@@ -29,6 +29,7 @@ const ui = {
   btnReplay2: document.getElementById('btn-replay2'),
   btnOwn: document.getElementById('btn-own'),
   btnSkip: document.getElementById('btn-skip'),
+  shareCopied: document.getElementById('share-copied'),
   toast: document.getElementById('toast'),
 };
 
@@ -303,11 +304,22 @@ ui.btnDone.addEventListener('click', async () => {
   show(ui.sharebar);
 });
 
+function showShareCopied() {
+  ui.shareCopied.classList.remove('hidden');
+  clearTimeout(showShareCopied._t);
+  showShareCopied._t = setTimeout(() => ui.shareCopied.classList.add('hidden'), 5000);
+}
+ui.shareCopied.addEventListener('click', () => {
+  clearTimeout(showShareCopied._t);
+  ui.shareCopied.classList.add('hidden');
+});
+
 ui.btnCopy.addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(ui.shareUrl.value);
-    toast('Link copied');
+    showShareCopied();
   } catch {
+    ui.shareUrl.hidden = false;
     ui.shareUrl.select();
     toast('Copy it from the box');
   }

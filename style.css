@@ -90,6 +90,9 @@ canvas.watching { cursor: default; }
 
 .btn {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border: 0;
   border-radius: 10px;
   background: var(--red);
@@ -176,6 +179,38 @@ canvas.watching { cursor: default; }
   font-size: 13px;
   font-weight: 600;
   padding: 8px 14px;
+}
+
+#share-copied {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10,8,6,.35);
+  cursor: pointer;
+}
+#share-copied-card {
+  text-align: center;
+  background: rgba(28,20,12,.94);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 14px;
+  padding: 28px 36px;
+  max-width: 480px;
+  margin: 0 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.5);
+}
+#share-copied-title {
+  font-family: Montserrat, -apple-system, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--cream);
+  margin-bottom: 10px;
+}
+#share-copied-sub {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #d9cfc2;
 }
 
 #toast {
