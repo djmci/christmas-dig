@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Christmas Dig — Red Ant</title>
+<meta name="description" content="Write a message in the dirt. The ants dig it out. A Christmas toy from Red Ant.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <img id="logo" src="assets/redant-logo.svg" alt="Red Ant">
+    <h1>CHRISTMAS&nbsp;DIG</h1>
+    <div id="hint"></div>
+  </header>
+
+  <div id="stage-wrap">
+    <div id="stage">
+      <canvas id="c" width="1200" height="760"></canvas>
+
+      <div id="overlay" class="hidden">
+        <div id="overlay-card">
+          <p id="overlay-text"></p>
+          <button id="overlay-btn" class="btn"></button>
+        </div>
+      </div>
+
+      <div id="toolbar" class="hidden">
+        <button id="btn-clear" class="btn ghost">Clear</button>
+        <button id="btn-done" class="btn" disabled>Release the Ants</button>
+      </div>
+
+      <div id="sharebar" class="hidden">
+        <input id="share-url" type="text" readonly hidden>
+        <button id="btn-copy" class="btn">Copy Link</button>
+        <button id="btn-replay" class="btn ghost">Watch It Dig</button>
+        <button id="btn-again" class="btn ghost">Draw Again</button>
+      </div>
+
+      <div id="afterbar" class="hidden">
+        <button id="btn-replay2" class="btn ghost">Dig It Again</button>
+        <button id="btn-own" class="btn">Bury Your Own Message</button>
+      </div>
+
+      <button id="btn-skip" class="btn ghost hidden">Skip</button>
+
+      <div id="toast" class="hidden"></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Christmas Dig — a <a href="https://redant.com.au">Red Ant</a> experiment, built with AI · Your message lives in the link, nowhere else</span>
+  </footer>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
